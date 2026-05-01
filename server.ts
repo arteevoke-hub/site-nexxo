@@ -9,6 +9,7 @@ import { createRequire } from 'module'; // <--- Deixe apenas UMA vez!
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Readable } from 'stream';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,10 +23,6 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -73,8 +70,12 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('<h1>Servidor Nexxo API Ativo</h1><p>Para acessar o sistema, use o endereço do Vite: <a href="http://localhost:5173">http://localhost:5173</a></p>');
+// Servir arquivos estáticos da pasta 'dist' (Vite build)
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Rota para a API status (opcional)
+app.get('/api/status', (req, res) => {
+  res.json({ status: 'online', message: 'Nexxo API Ativa' });
 });
 
 // Rate Limiting
@@ -471,6 +472,11 @@ app.post('/api/sync/produtos', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Servidor Nexxo rodando na porta ${port}`);
+// Rota para qualquer outra coisa - Serve o index.html do React (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor Nexxo rodando na porta ${PORT}`);
 });
