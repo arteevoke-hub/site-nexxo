@@ -28,7 +28,7 @@
     "node-fetch": "^3.3.2",
     "papaparse": "^5.5.3",
     "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^5.7.284",
     "puppeteer": "^24.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
