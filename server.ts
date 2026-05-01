@@ -5,19 +5,25 @@ import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
-import { createRequire } from 'module';
-import { createRequire } from 'module';
+import { createRequire } from 'module'; // <--- Deixe apenas UMA vez!
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse/lib/pdf-parse.js');
 const { google } = require('googleapis');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer'); // (Atenção: garanta que essa palavra 'puppeteer' não ficou cortada aí no seu editor!)
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
 
