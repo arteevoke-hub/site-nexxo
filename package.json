@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "npx concurrently \"tsx server.ts\" \"vite\"",
-    "build": "vite build && npx esbuild server.ts --bundle --platform=node --format=esm --outfile=app.js --external:puppeteer --external:pdf-parse --external:googleapis",
-    "start": "node app.js",
+    "build": "vite build",
+    "start": "node --import tsx server.ts",
     "clean": "rm -rf dist app.js",
     "lint": "tsc --noEmit"
   },

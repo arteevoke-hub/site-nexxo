@@ -1,3 +1,5 @@
+console.log('>>> SERVIDOR TENTANDO INICIAR AGORA <<<');
+console.log('Data:', new Date().toISOString());
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
