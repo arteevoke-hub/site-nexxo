@@ -17,7 +17,14 @@ const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse/lib/pdf-parse.js');
 const { google } = require('googleapis');
-const puppeteer = require('puppeteer'); // (Atenção: garanta que essa palavra 'puppeteer' não ficou cortada aí no seu editor!)
+
+// Carregamento seguro do Puppeteer para evitar crash em ambientes sem libs de sistema (Hostinger)
+let puppeteer: any = null;
+try {
+  puppeteer = require('puppeteer');
+} catch (e) {
+  console.error('AVISO: Puppeteer não pôde ser carregado. Geração de PDF desativada.', e.message);
+}
 
 dotenv.config();
 
@@ -243,6 +250,9 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
 
     // 3. Gerar PDF com Puppeteer
     console.log(`[Integrate] Gerando PDF com Puppeteer...`);
+    if (!puppeteer) {
+      throw new Error('Serviço de PDF indisponível neste servidor (Requer VPS).');
+    }
     const linhasTabela = (itens || []).map((item: any) => {
       const img = item.produtos?.url_imagem || '';
       return `
