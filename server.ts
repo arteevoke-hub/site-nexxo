@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 
 dotenv.config();
 
-console.log('>>> INICIANDO SERVIDOR NEXXO PRODUÇÃO <<<');
+console.log('>>> INICIANDO SERVIDOR NEXXO PRODUÇÃO (DYNAMIC) <<<');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
