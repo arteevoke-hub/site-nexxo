@@ -1,37 +1,39 @@
-console.log('>>> SERVIDOR TENTANDO INICIAR AGORA <<<');
-console.log('Data:', new Date().toISOString());
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
-import { createRequire } from 'module'; // <--- Deixe apenas UMA vez!
-
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
+import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse/lib/pdf-parse.js');
-const { google } = require('googleapis');
 
-// Carregamento seguro do Puppeteer para evitar crash em ambientes sem libs de sistema (Hostinger)
+dotenv.config();
+
+console.log('>>> INICIANDO SERVIDOR NEXXO PRODUÇÃO <<<');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Configurações básicas
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Carregamento Seguro (Lazy Load) para evitar crash no boot
+const getGoogleApis = () => require('googleapis');
+const getPdfParse = () => require('pdf-parse/lib/pdf-parse.js');
 let puppeteer: any = null;
 try {
   puppeteer = require('puppeteer');
 } catch (e) {
-  console.error('AVISO: Puppeteer não pôde ser carregado. Geração de PDF desativada.', e.message);
+  console.warn('AVISO: Puppeteer indisponível.');
 }
-
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -70,6 +72,7 @@ const getGoogleAuth = () => {
     return null;
   }
 
+  const { google } = getGoogleApis();
   return new google.auth.GoogleAuth({
     credentials: {
       type: 'service_account',
@@ -86,17 +89,6 @@ const getGoogleAuth = () => {
 // In-memory Cache
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
-
-app.use(cors());
-app.use(express.json());
-
-// Servir arquivos estáticos da pasta 'dist' (Vite build)
-app.use(express.static(path.join(__dirname, 'dist')));
-
-// Rota para a API status (opcional)
-app.get('/api/status', (req, res) => {
-  res.json({ status: 'online', message: 'Nexxo API Ativa' });
-});
 
 // Rate Limiting
 const apiLimiter = rateLimit({
@@ -166,7 +158,7 @@ app.post('/api/ml/parse-pdf', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
 
   try {
-    const data = await pdf(req.file.buffer);
+    const data = await getPdfParse()(req.file.buffer);
     const text = data.text;
 
     // Regex para encontrar linhas do tipo: "Unidades SKU: [CODIGO] [NOME]" ou similar
@@ -348,6 +340,7 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
     if (googleAuth) {
       console.log(`[Integrate] Conectando ao Google...`);
       const authClient = await googleAuth.getClient();
+      const { google } = getGoogleApis();
       const drive = google.drive({ version: 'v3', auth: authClient });
       const calendar = google.calendar({ version: 'v3', auth: authClient });
 
@@ -426,6 +419,7 @@ app.post('/api/google/upload-file', upload.single('file'), async (req, res) => {
     if (!googleAuth) throw new Error('Google Auth não configurado');
 
     const authClient = await googleAuth.getClient();
+    const { google } = getGoogleApis();
     const drive = google.drive({ version: 'v3', auth: authClient });
 
     // Busca o link da pasta na remessa
