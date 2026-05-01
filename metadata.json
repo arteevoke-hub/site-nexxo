@@ -1,0 +1,6 @@
+{
+  "name": "Prax-Tiny Dashboard",
+  "description": "Dashboard para visualização de estoque integrada ao Tiny ERP, com visual inspirado na Prax.ai.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

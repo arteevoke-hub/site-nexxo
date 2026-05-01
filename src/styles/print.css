@@ -1,0 +1,62 @@
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  
+  /* Reset general styles for print */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  /* Hide everything except print area */
+  /* We use visibility instead of display:none to allow nested elements to be visible */
+  body {
+    visibility: hidden;
+  }
+
+  .print-area {
+    visibility: visible;
+    position: static !important; /* static is better for multi-page */
+    display: block !important;   /* block is better than flex for page breaks */
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  .print-area * {
+    visibility: visible;
+  }
+  
+  /* Prevent page breaks inside rows */
+  .print-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Hide print button when printing */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure background colors and borders print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .quebrar-pagina {
+    page-break-before: always !important;
+    break-before: page !important;
+    display: block;
+    width: 100%;
+    height: 0;
+  }
+}
