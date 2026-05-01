@@ -21,7 +21,7 @@ export default defineConfig(({mode}) => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'lucide-react', 'motion'],
-            utils: ['xlsx', 'papaparse', 'pdf-parse', 'pdfjs-dist'],
+            utils: ['xlsx', 'papaparse', 'pdfjs-dist'],
           },
         },
       },
