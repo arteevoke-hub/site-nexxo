@@ -33,7 +33,18 @@ const PORT = process.env.PORT || 3000;
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Inicialização segura do Supabase para evitar crash se as chaves faltarem no hPanel
+let supabase: any = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (e) {
+    console.error('Erro ao inicializar Supabase:', e.message);
+  }
+} else {
+  console.warn('AVISO: Variáveis do Supabase faltando no ambiente!');
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -488,5 +499,9 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor Nexxo rodando na porta ${PORT}`);
+  console.log('====================================');
+  console.log(`SERVIDOR NEXXO INICIADO COM SUCESSO`);
+  console.log(`Porta: ${PORT}`);
+  console.log(`Ambiente: ${process.env.NODE_ENV || 'produção'}`);
+  console.log('====================================');
 });

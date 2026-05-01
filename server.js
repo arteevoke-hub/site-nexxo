@@ -62999,7 +62999,16 @@ var app = (0, import_express.default)();
 var PORT = process.env.PORT || 3e3;
 var supabaseUrl = process.env.VITE_SUPABASE_URL || "";
 var supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
-var supabase = createClient(supabaseUrl, supabaseKey);
+var supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (e2) {
+    console.error("Erro ao inicializar Supabase:", e2.message);
+  }
+} else {
+  console.warn("AVISO: Vari\xE1veis do Supabase faltando no ambiente!");
+}
 var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage() });
 var TINY_TOKENS = {
   MEIKE: process.env.TINY_API_TOKEN_MEIKE || process.env.TINY_API_TOKEN || "",
@@ -63358,7 +63367,11 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor Nexxo rodando na porta ${PORT}`);
+  console.log("====================================");
+  console.log(`SERVIDOR NEXXO INICIADO COM SUCESSO`);
+  console.log(`Porta: ${PORT}`);
+  console.log(`Ambiente: ${process.env.NODE_ENV || "produ\xE7\xE3o"}`);
+  console.log("====================================");
 });
 /*! Bundled license information:
 
