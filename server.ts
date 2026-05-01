@@ -15,7 +15,11 @@ const puppeteer = require('puppeteer');
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -137,31 +141,31 @@ app.post('/api/ml/parse-pdf', upload.single('pdf'), async (req, res) => {
   try {
     const data = await pdf(req.file.buffer);
     const text = data.text;
-    
+
     // Regex para encontrar linhas do tipo: "Unidades SKU: [CODIGO] [NOME]" ou similar
     // Mercado Livre costuma listar o SKU e a quantidade
     // Como não temos o PDF exato, vamos buscar por padrões de SKU e nomes com *
-    
+
     const lines = text.split('\n');
     const itemsFound: any[] = [];
-    
+
     // Lógica de Extração (Heurística para ML Full)
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       // Tenta encontrar a quantidade seguida do SKU ou Título
       // Padrão comum: "10 SKU-12345 Produto..."
       const match = line.match(/^(\d+)\s+(.+)$/);
       if (match) {
         const qtd = parseInt(match[1]);
         const resto = match[2].trim();
-        
+
         // Busca o produto no banco pelo SKU ou Nome (que deve começar com *)
         const { data: prods } = await supabase
           .from('produtos')
           .select('*, skus_marketplace(*)')
           .or(`sku.eq.${resto},nome.ilike.*${resto}%`);
-          
+
         if (prods && prods.length > 0) {
           const prod = prods.find(p => p.nome.startsWith('*')) || prods[0];
           itemsFound.push({
@@ -173,8 +177,8 @@ app.post('/api/ml/parse-pdf', upload.single('pdf'), async (req, res) => {
       }
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       items: itemsFound,
       rawText: text.slice(0, 500) // Para debug
     });
@@ -214,7 +218,7 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
 
     const numFormatadoDrive = String(currentSeq || 0).padStart(3, '0');
     const numFormatadoAgenda = String(currentSeq || 0).padStart(2, '0');
-    
+
     let dataFormatada = 'XX/XX';
     if (remessa.data_envio) {
       const parts = remessa.data_envio.split('-');
@@ -336,7 +340,7 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
       // 4.2 Criar Evento
       const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
       const eventDateBase = remessa.data_envio || new Date().toISOString().split('T')[0];
-      
+
       let colorId = '8';
       if (plataformaLower.includes('mercado')) colorId = '5';
       else if (plataformaLower.includes('shopee')) colorId = '6';
@@ -356,7 +360,7 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
           summary: tituloAgenda,
           description: descricaoHtml,
           start: { dateTime: `${eventDateBase}T09:00:00-03:00`, timeZone: 'America/Sao_Paulo' },
-          end:   { dateTime: `${eventDateBase}T10:00:00-03:00`, timeZone: 'America/Sao_Paulo' },
+          end: { dateTime: `${eventDateBase}T10:00:00-03:00`, timeZone: 'America/Sao_Paulo' },
           colorId,
         }
       });
@@ -364,14 +368,14 @@ app.post('/api/ml/integrate/:id', async (req, res) => {
     }
 
     // 5. Atualizar Status no Supabase
-    await supabase.from('remessas_full').update({ 
+    await supabase.from('remessas_full').update({
       status: 'Integrado',
       data_integracao: new Date().toISOString(),
       pdf_url: folderLink || remessa.pdf_url
     }).eq('id', id);
 
-    res.json({ 
-      status: 'success', 
+    res.json({
+      status: 'success',
       message: `Integração completa para ${remessa.numero_envio || id}!`,
       folder_link: folderLink,
       event_link: eventLink
@@ -397,7 +401,7 @@ app.post('/api/google/upload-file', upload.single('file'), async (req, res) => {
     // Busca o link da pasta na remessa
     const { data: remessa } = await supabase.from('remessas_full').select('pdf_url').eq('id', id_remessa).single();
     let folderId = null;
-    
+
     if (remessa?.pdf_url && remessa.pdf_url.includes('folders/')) {
       folderId = remessa.pdf_url.split('folders/')[1].split('?')[0];
     }
@@ -440,7 +444,7 @@ app.post('/api/sync/produtos', async (req, res) => {
       const response = await fetch(`https://api.tiny.com.br/api2/produtos.pesquisa.php?token=${token}&formato=json&pagina=${pagina}`);
       const data = await response.json();
       const produtos = data.retorno?.produtos || [];
-      
+
       if (produtos.length === 0) { temMais = false; break; }
 
       const supabaseData = produtos.map((item: any) => ({
