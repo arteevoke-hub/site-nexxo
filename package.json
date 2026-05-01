@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx concurrently \"tsx server.ts\" \"vite\"",
     "build": "vite build",
-    "start": "node --import tsx server.ts",
+    "start": "node app.js",
     "clean": "rm -rf dist app.js",
     "lint": "tsc --noEmit"
   },
