@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "npx concurrently \"tsx server.ts\" \"vite\"",
-    "build": "vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=app.js --external:puppeteer --external:pdf-parse --external:googleapis",
-    "start": "node index.cjs",
-    "clean": "rm -rf dist app.js",
+    "build": "vite build && npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=app.cjs --external:puppeteer --external:pdf-parse --external:googleapis",
+    "start": "node app.cjs",
+    "clean": "rm -rf dist app.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

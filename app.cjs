@@ -43743,10 +43743,10 @@ var require_buffer_list = __commonJS({
       }
       return (hint === "string" ? String : Number)(input);
     }
-    var _require = require("buffer");
-    var Buffer3 = _require.Buffer;
-    var _require2 = require("util");
-    var inspect = _require2.inspect;
+    var _require2 = require("buffer");
+    var Buffer3 = _require2.Buffer;
+    var _require22 = require("util");
+    var inspect = _require22.inspect;
     var custom = inspect && inspect.custom || "inspect";
     function copyBuffer(src, target, offset) {
       Buffer3.prototype.copy.call(src, target, offset);
@@ -44167,8 +44167,8 @@ var require_stream_writable = __commonJS({
       return Buffer3.isBuffer(obj) || obj instanceof OurUint8Array;
     }
     var destroyImpl = require_destroy2();
-    var _require = require_state();
-    var getHighWaterMark = _require.getHighWaterMark;
+    var _require2 = require_state();
+    var getHighWaterMark = _require2.getHighWaterMark;
     var _require$codes = require_errors2().codes;
     var ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE;
     var ERR_METHOD_NOT_IMPLEMENTED = _require$codes.ERR_METHOD_NOT_IMPLEMENTED;
@@ -45364,8 +45364,8 @@ var require_stream_readable = __commonJS({
     }
     var BufferList = require_buffer_list();
     var destroyImpl = require_destroy2();
-    var _require = require_state();
-    var getHighWaterMark = _require.getHighWaterMark;
+    var _require2 = require_state();
+    var getHighWaterMark = _require2.getHighWaterMark;
     var _require$codes = require_errors2().codes;
     var ERR_INVALID_ARG_TYPE = _require$codes.ERR_INVALID_ARG_TYPE;
     var ERR_STREAM_PUSH_AFTER_EOF = _require$codes.ERR_STREAM_PUSH_AFTER_EOF;
@@ -56638,25 +56638,22 @@ var rate_limit_default = rateLimit;
 // server.ts
 var import_multer = __toESM(require_multer(), 1);
 var import_path = __toESM(require("path"), 1);
-var import_url = require("url");
 var import_stream = require("stream");
-var import_module = require("module");
 var import_meta = {};
-var __filename = (0, import_url.fileURLToPath)(import_meta.url);
-var __dirname = import_path.default.dirname(__filename);
-var require2 = (0, import_module.createRequire)(import_meta.url);
+var _dirname = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+var _require = typeof require !== "undefined" ? require : createRequire(import_meta.url);
 import_dotenv.default.config();
 console.log(">>> INICIANDO SERVIDOR NEXXO PRODU\xC7\xC3O (DYNAMIC) <<<");
 var app = (0, import_express.default)();
 var PORT = process.env.PORT || 3e3;
 app.use((0, import_cors.default)());
 app.use(import_express.default.json());
-app.use(import_express.default.static(import_path.default.join(__dirname, "dist")));
-var getGoogleApis = () => require2("googleapis");
-var getPdfParse = () => require2("pdf-parse/lib/pdf-parse.js");
+app.use(import_express.default.static(import_path.default.join(_dirname, "dist")));
+var getGoogleApis = () => _require("googleapis");
+var getPdfParse = () => _require("pdf-parse/lib/pdf-parse.js");
 var puppeteer = null;
 try {
-  puppeteer = require2("puppeteer");
+  puppeteer = _require("puppeteer");
 } catch (e) {
   console.warn("AVISO: Puppeteer indispon\xEDvel.");
 }
@@ -57024,7 +57021,7 @@ app.post("/api/sync/produtos", async (req, res) => {
   }
 });
 app.get("*", (req, res) => {
-  res.sendFile(import_path.default.join(__dirname, "dist", "index.html"));
+  res.sendFile(import_path.default.join(_dirname, "dist", "index.html"));
 });
 app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");

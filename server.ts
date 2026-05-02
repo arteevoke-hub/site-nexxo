@@ -7,11 +7,9 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
-import { createRequire } from 'module';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
+// Versão ultra-compatível para Hostinger
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+const _require = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 
 dotenv.config();
 
@@ -23,14 +21,14 @@ const PORT = process.env.PORT || 3000;
 // Configurações básicas
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(_dirname, 'dist')));
 
 // Carregamento Seguro (Lazy Load) para evitar crash no boot
-const getGoogleApis = () => require('googleapis');
-const getPdfParse = () => require('pdf-parse/lib/pdf-parse.js');
+const getGoogleApis = () => _require('googleapis');
+const getPdfParse = () => _require('pdf-parse/lib/pdf-parse.js');
 let puppeteer: any = null;
 try {
-  puppeteer = require('puppeteer');
+  puppeteer = _require('puppeteer');
 } catch (e) {
   console.warn('AVISO: Puppeteer indisponível.');
 }
@@ -491,7 +489,7 @@ app.post('/api/sync/produtos', async (req, res) => {
 
 // Rota para qualquer outra coisa - Serve o index.html do React (SPA)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(_dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
