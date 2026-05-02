@@ -76,6 +76,10 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       validateSession(session);
+      // Limpa o hash da URL (comum após login com Supabase)
+      if (window.location.hash && (_event === 'SIGNED_IN' || _event === 'INITIAL_SESSION')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     });
 
     return () => subscription.unsubscribe();

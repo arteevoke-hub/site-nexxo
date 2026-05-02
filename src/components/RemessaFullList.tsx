@@ -144,9 +144,9 @@ function CalendarioEnvios({ remessas }: { remessas: Remessa[] }) {
       <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 mb-5">
         CALENDÁRIO DE ENVIOS
       </h2>
-      <div className="flex gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Lista de eventos */}
-        <div className="flex-1 space-y-1.5">
+        <div className="flex-1 space-y-1.5 overflow-hidden">
           {sorted.length === 0 ? (
             <p className="text-sm text-slate-400">Nenhum envio programado.</p>
           ) : (
@@ -678,7 +678,8 @@ function RemessaTabela({
   if (!remessas.length) return <div className="p-8 text-center text-slate-400 text-sm">Nenhuma remessa encontrada.</div>;
 
   return (
-    <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto -mx-8 md:mx-0 custom-scrollbar">
+      <table className="w-full text-left text-sm min-w-[1000px]">
       <thead className="bg-[#1e212e] text-slate-400 font-semibold border-b border-slate-800">
         <tr>
           <th className="px-6 py-4">Plataforma</th>
@@ -727,7 +728,8 @@ function RemessaTabela({
           );
         })}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
 
@@ -778,20 +780,20 @@ export function RemessaFullList({ onSelect }: { onSelect: (id: string | 'new') =
   const activeRemessas = remessas.filter(r => !ARCHIVED.includes((r.status || '').toLowerCase()));
 
   return (
-    <div className="flex-1 bg-white">
-      <div className="max-w-6xl mx-auto px-8 py-12 space-y-12">
-        <div className="flex justify-between items-center">
+    <div className="flex-1 bg-white overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-12 space-y-8 md:space-y-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Controle Envios Full</h1>
             <p className="text-slate-500 text-sm">Gerencie remessas para Mercado Livre e Shopee.</p>
           </div>
-          <button onClick={() => onSelect('new')} className="bg-black text-white px-6 py-3 rounded-none font-bold text-sm flex items-center gap-2 hover:bg-slate-800 transition-all active:scale-95">
+          <button onClick={() => onSelect('new')} className="w-full md:w-auto bg-black text-white px-6 py-3 rounded-none font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95">
             <Plus size={16} /> Nova Remessa
           </button>
         </div>
 
         <div className="bg-white border border-slate-100 overflow-hidden shadow-sm">
-          <div className="flex border-b border-slate-100 bg-slate-50/50">
+          <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto no-scrollbar">
             {TABS.map(tab => (
               <button
                 key={tab}

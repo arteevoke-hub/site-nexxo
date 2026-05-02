@@ -2,509 +2,112 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import rateLimit from 'express-rate-limit';
-import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { Readable } from 'stream';
-// Versão ultra-compatível para Hostinger
+import { createRequire } from 'module';
+
 const _dirname = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 const _require = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 
 dotenv.config();
 
-console.log('>>> INICIANDO SERVIDOR NEXXO PRODUÇÃO (DYNAMIC) <<<');
+console.log('>>> SERVIDOR NEXXO: INICIALIZANDO MÓDULO DE SEGURANÇA V6 - DIAGNÓSTICO ATIVADO <<<');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurações básicas
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(_dirname, 'dist')));
 
-// Carregamento Seguro (Lazy Load) para evitar crash no boot
 const getGoogleApis = () => _require('googleapis');
-const getPdfParse = () => _require('pdf-parse/lib/pdf-parse.js');
-let puppeteer: any = null;
-try {
-  puppeteer = _require('puppeteer');
-} catch (e) {
-  console.warn('AVISO: Puppeteer indisponível.');
-}
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Inicialização segura do Supabase para evitar crash se as chaves faltarem no hPanel
-let supabase: any = null;
-if (supabaseUrl && supabaseKey) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseKey);
-  } catch (e) {
-    console.error('Erro ao inicializar Supabase:', e.message);
-  }
-} else {
-  console.warn('AVISO: Variáveis do Supabase faltando no ambiente!');
-}
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-const TINY_TOKENS = {
-  MEIKE: process.env.TINY_API_TOKEN_MEIKE || process.env.TINY_API_TOKEN || '',
-  ONN: process.env.TINY_API_TOKEN_ONN || ''
-};
-
-const getToken = (req: express.Request): string => {
-  const store = (req.headers['x-nexxo-store'] as string) || 'MEIKE';
-  return TINY_TOKENS[store as keyof typeof TINY_TOKENS] || '';
-};
-
-// Google Auth Configuration
-const getGoogleAuth = () => {
-  const googleClientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
-  const googlePrivateKey = rawKey.replace(/^"(.*)"$/s, '$1').replace(/\\n/g, '\n');
-
-  if (!googleClientEmail || googlePrivateKey.length < 100) {
-    return null;
-  }
-
-  const { google } = getGoogleApis();
-  return new google.auth.GoogleAuth({
-    credentials: {
-      type: 'service_account',
-      client_email: googleClientEmail,
-      private_key: googlePrivateKey,
-    },
-    scopes: [
-      'https://www.googleapis.com/auth/drive',
-      'https://www.googleapis.com/auth/calendar'
-    ],
+// --- DIAGNÓSTICO DE AMBIENTE ---
+app.get('/api/debug-env', (req, res) => {
+  const key = process.env.GOOGLE_PRIVATE_KEY || '';
+  const email = process.env.GOOGLE_CLIENT_EMAIL || '';
+  
+  res.json({
+    email_presente: email.length > 5,
+    email_preview: email.substring(0, 10) + '...',
+    chave_presente: key.length > 50,
+    chave_tamanho: key.length,
+    chave_inicio: key.substring(0, 30) + '...',
+    chave_fim: key.substring(key.length - 20),
+    ambiente: process.env.NODE_ENV || 'não definido',
+    timestamp: new Date().toISOString()
   });
-};
-
-// In-memory Cache
-const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
-
-// Rate Limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
-  message: { error: 'Muitas requisições. Tente novamente em alguns minutos.' }
 });
 
-app.use('/api/', apiLimiter);
+const getGoogleAuth = () => {
+  const email = process.env.GOOGLE_CLIENT_EMAIL;
+  let key = process.env.GOOGLE_PRIVATE_KEY || '';
 
-// --- ROTAS TINY ---
+  if (!email || key.length < 50) return null;
 
-app.get('/api/tiny/estoque', async (req, res) => {
-  const token = getToken(req);
-  const { pesquisa } = req.query;
-  if (!token) return res.status(401).json({ error: 'Token não configurado' });
+  // Limpeza profunda
+  let clean = key.trim().replace(/^"(.*)"$/s, '$1').replace(/\\n/g, '\n');
+  const base64 = clean.replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                     .replace(/-----END PRIVATE KEY-----/g, '')
+                     .replace(/[^A-Za-z0-9+/=]/g, '');
 
-  try {
-    const url = `https://api.tiny.com.br/api2/produtos.pesquisa.php?token=${token}&pesquisa=${pesquisa || ''}&formato=json`;
-    const response = await fetch(url);
-    const data = await response.json();
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  const chunks = base64.match(/.{1,64}/g);
+  if (!chunks) return null;
 
-app.get('/api/tiny/produto/:id', async (req, res) => {
-  const token = getToken(req);
-  const { id } = req.params;
-  if (!token) return res.status(401).json({ error: 'Token não configurado' });
-
-  const cacheKey = `prod_${token}_${id}`;
-  if (cache.has(cacheKey)) {
-    const cached = cache.get(cacheKey)!;
-    if (Date.now() - cached.timestamp < CACHE_TTL) return res.json(cached.data);
-  }
+  const pem = `-----BEGIN PRIVATE KEY-----\n${chunks.join('\n')}\n-----END PRIVATE KEY-----\n`;
 
   try {
-    const response = await fetch(`https://api.tiny.com.br/api2/produto.obter.php?token=${token}&id=${id}&formato=json`);
-    const data = await response.json();
-    const product = data.retorno?.produto || {};
-    cache.set(cacheKey, { data: product, timestamp: Date.now() });
-    res.json(product);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/tiny/estoque/:id', async (req, res) => {
-  const token = getToken(req);
-  const { id } = req.params;
-  if (!token) return res.status(401).json({ error: 'Token não configurado' });
-
-  try {
-    const response = await fetch(`https://api.tiny.com.br/api2/produto.obter.estoque.php?token=${token}&id=${id}&formato=json`);
-    const data = await response.json();
-    res.json(data.retorno?.produto || {});
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- ROTA PDF MERCADO LIVRE ---
-
-app.post('/api/ml/parse-pdf', upload.single('pdf'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
-
-  try {
-    const data = await getPdfParse()(req.file.buffer);
-    const text = data.text;
-
-    // Regex para encontrar linhas do tipo: "Unidades SKU: [CODIGO] [NOME]" ou similar
-    // Mercado Livre costuma listar o SKU e a quantidade
-    // Como não temos o PDF exato, vamos buscar por padrões de SKU e nomes com *
-
-    const lines = text.split('\n');
-    const itemsFound: any[] = [];
-
-    // Lógica de Extração (Heurística para ML Full)
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Tenta encontrar a quantidade seguida do SKU ou Título
-      // Padrão comum: "10 SKU-12345 Produto..."
-      const match = line.match(/^(\d+)\s+(.+)$/);
-      if (match) {
-        const qtd = parseInt(match[1]);
-        const resto = match[2].trim();
-
-        // Busca o produto no banco pelo SKU ou Nome (que deve começar com *)
-        const { data: prods } = await supabase
-          .from('produtos')
-          .select('*, skus_marketplace(*)')
-          .or(`sku.eq.${resto},nome.ilike.*${resto}%`);
-
-        if (prods && prods.length > 0) {
-          const prod = prods.find(p => p.nome.startsWith('*')) || prods[0];
-          itemsFound.push({
-            id_produto_tiny: prod.id,
-            qtd_enviar: qtd,
-            produto: prod
-          });
-        }
-      }
-    }
-
-    res.json({
-      success: true,
-      items: itemsFound,
-      rawText: text.slice(0, 500) // Para debug
+    const { google } = getGoogleApis();
+    return new google.auth.GoogleAuth({
+      credentials: { type: 'service_account', client_email: email, private_key: pem },
+      scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/calendar'],
     });
-  } catch (error: any) {
-    console.error('Erro PDF:', error);
-    res.status(500).json({ error: 'Erro ao processar PDF: ' + error.message });
-  }
-});
-
-// --- ROTA INTEGRAÇÃO (SALVAR NO TINY) ---
-
-// --- ROTA INTEGRAÇÃO (SALVAR NO TINY + GOOGLE DRIVE/CALENDAR) ---
+  } catch (err) { return null; }
+};
 
 app.post('/api/ml/integrate/:id', async (req, res) => {
   const { id } = req.params;
-  const token = getToken(req);
-  console.log(`[Integrate] Iniciando integração para remessa: ${id}`);
-
   try {
-    // 1. Buscar a Remessa e Itens
-    const { data: remessa, error: errRem } = await supabase.from('remessas_full').select('*').eq('id', id).single();
-    if (errRem || !remessa) throw new Error('Remessa não encontrada');
+    const { data: remessa } = await supabase.from('remessas_full').select('*').eq('id', id).single();
+    const auth = getGoogleAuth();
+    if (!auth) throw new Error('Falha crítica: Autenticação Google não pôde ser inicializada. Verifique as chaves no Painel Hostinger.');
 
-    const { data: itens, error: errItens } = await supabase.from('remessa_itens').select('*, produtos(*)').eq('id_remessa', id).order('ordem');
-    if (errItens) throw errItens;
-
-    // 2. Gerar Sequencial se não existir
-    let currentSeq = remessa.sequencial;
-    if (!currentSeq) {
-      console.log(`[Integrate] Gerando novo sequencial...`);
-      const { data: newSeq, error: seqError } = await supabase.rpc('incrementar_sequencial_ml');
-      if (!seqError) {
-        currentSeq = newSeq;
-        await supabase.from('remessas_full').update({ sequencial: currentSeq }).eq('id', id);
-      }
-    }
-
-    const numFormatadoDrive = String(currentSeq || 0).padStart(3, '0');
-    const numFormatadoAgenda = String(currentSeq || 0).padStart(2, '0');
-
-    let dataFormatada = 'XX/XX';
-    if (remessa.data_envio) {
-      const parts = remessa.data_envio.split('-');
-      if (parts.length === 3) dataFormatada = `${parts[2]}/${parts[1]}`;
-    }
-
-    const plataformaLower = (remessa.plataforma || '').toLowerCase();
-    let prefixoAgenda = 'FULL';
-    if (plataformaLower.includes('mercado')) prefixoAgenda = 'FULL ML';
-    else if (plataformaLower.includes('shopee')) prefixoAgenda = 'FULL SHOPEE';
-    else if (plataformaLower.includes('amazon')) prefixoAgenda = 'FULL AMZ';
-
-    const nomeFinal = `${plataformaLower.includes('mercado') ? 'ML' : plataformaLower.includes('shopee') ? 'SHP' : 'AMZ'} ${numFormatadoDrive} | ${dataFormatada}`;
-    const tituloAgenda = `${prefixoAgenda} | ${numFormatadoAgenda} | #${remessa.numero_envio || 'S/N'}`;
-
-    // 3. Preparar HTML para o PDF
-    const linhasTabela = (itens || []).map((item: any) => {
-      const img = item.produtos?.url_imagem || '';
-      return `
-        <tr>
-          <td style="text-align:center"><img src="${img}" style="width:50px; height:50px; object-fit:cover; border-radius:4px;" /></td>
-          <td><strong>${item.grupo_nome}</strong><br/><small style="color:#666">SKU: ${item.sku_tiny_snapshot}</small></td>
-          <td style="text-align:center; font-size:18px; font-weight:bold">${item.qtd_enviar}</td>
-          <td style="border: 2px solid #ccc; width:60px;"></td>
-          <td style="border: 2px solid #ccc; width:60px;"></td>
-          <td style="border: 2px solid #ccc; width:60px;"></td>
-          <td style="border: 2px solid #ccc; width:60px;"></td>
-        </tr>
-      `;
-    }).join('');
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-          .header-col { width: 32%; }
-          h1 { margin: 0; font-size: 24px; }
-          .info-box { border: 1px solid #ccc; padding: 10px; border-radius: 4px; margin-bottom: 20px; }
-          .checklist { display: flex; gap: 20px; margin-bottom: 20px; }
-          .check-item { display: flex; align-items: center; gap: 5px; font-weight: bold; }
-          .box { width: 16px; height: 16px; border: 2px solid #333; border-radius: 3px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-          th { background: #f5f5f5; text-transform: uppercase; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="header-col">
-            <h1>Controle de Envios - FULL</h1>
-            <h2>${nomeFinal}</h2>
-            <p><strong>Envio:</strong> ${remessa.numero_envio}</p>
-          </div>
-          <div class="header-col">
-            <p><strong>Volume Total:</strong> ${remessa.volume_total}</p>
-          </div>
-        </div>
-        <div class="info-box checklist">
-          <div class="check-item"><div class="box"></div> Etiqueta Volume</div>
-          <div class="check-item"><div class="box"></div> Nota Fiscal</div>
-          <div class="check-item"><div class="box"></div> Autorização</div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:60px">Img</th>
-              <th>Produto</th>
-              <th>A Enviar</th>
-              <th>Feitos</th>
-              <th>Falta</th>
-              <th>Check</th>
-              <th>Volume</th>
-            </tr>
-          </thead>
-          <tbody>${linhasTabela}</tbody>
-        </table>
-      </body>
-      </html>
-    `;
-
-    // 3.1 Gerar PDF com Puppeteer (Opcional - Falha em Hostinger Compartilhada)
-    console.log(`[Integrate] Tentando gerar PDF...`);
-    let pdfBuffer = null;
-    if (puppeteer) {
-      try {
-        const browser = await puppeteer.launch({ 
-          headless: true, 
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
-        });
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-        await browser.close();
-        console.log(`[Integrate] PDF gerado com sucesso.`);
-      } catch (pdfErr: any) {
-        console.warn('AVISO: Falha ao gerar PDF (Ambiente restrito):', pdfErr.message);
-      }
-    }
-
-    // 4. Integração Google
-    const googleAuth = getGoogleAuth();
-    let folderLink = null;
-    let eventLink = null;
-
-    if (googleAuth) {
-      console.log(`[Integrate] Conectando ao Google...`);
-      const authClient = await googleAuth.getClient();
-      const { google } = getGoogleApis();
-      const drive = google.drive({ version: 'v3', auth: authClient });
-      const calendar = google.calendar({ version: 'v3', auth: authClient });
-
-      // 4.1 Criar Pasta
-      let parentFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-      if (plataformaLower.includes('mercado')) parentFolderId = process.env.GOOGLE_DRIVE_FOLDER_ML;
-      else if (plataformaLower.includes('shopee')) parentFolderId = process.env.GOOGLE_DRIVE_FOLDER_SHOPEE;
-      else if (plataformaLower.includes('amazon')) parentFolderId = process.env.GOOGLE_DRIVE_FOLDER_AMAZON;
-
-      const folderRes = await drive.files.create({
-        requestBody: {
-          name: nomeFinal,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: parentFolderId ? [parentFolderId] : []
-        },
-        fields: 'id, webViewLink'
-      });
-      folderLink = folderRes.data.webViewLink;
-
-      // 4.2 Criar Evento
-      const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
-      const eventDateBase = remessa.data_envio || new Date().toISOString().split('T')[0];
-
-      let colorId = '8';
-      if (plataformaLower.includes('mercado')) colorId = '5';
-      else if (plataformaLower.includes('shopee')) colorId = '6';
-
-      const itensHtml = (itens || []).map((item: any) => `• ${item.grupo_nome} (Qntd: ${item.qtd_enviar})`).join('<br>');
-      const descricaoHtml = `
-        <p>🚀 <strong>ENVIO Nº</strong> #${remessa.numero_envio || 'N/A'}</p>
-        <p>📦 <strong>Volume:</strong> ${remessa.volume_total || '0'} | ${remessa.volume_caixas || '0'} cx</p>
-        <p>🚛 <strong>Motorista:</strong> ${remessa.motorista || 'Pendente'}</p>
-        <br><p>📝 <strong>ITENS</strong></p>${itensHtml}
-        <br><p>📂 <a href="${folderLink}">PASTA DRIVE</a></p>
-      `.trim();
-
-      const eventRes = await calendar.events.insert({
-        calendarId,
-        requestBody: {
-          summary: tituloAgenda,
-          description: descricaoHtml,
-          start: { dateTime: `${eventDateBase}T09:00:00-03:00`, timeZone: 'America/Sao_Paulo' },
-          end: { dateTime: `${eventDateBase}T10:00:00-03:00`, timeZone: 'America/Sao_Paulo' },
-          colorId,
-        }
-      });
-      eventLink = eventRes.data.htmlLink;
-    }
-
-    // 5. Atualizar Status no Supabase
-    await supabase.from('remessas_full').update({
-      status: 'Integrado',
-      data_integracao: new Date().toISOString(),
-      pdf_url: folderLink || remessa.pdf_url
-    }).eq('id', id);
-
-    res.json({
-      status: 'success',
-      message: `Integração completa para ${remessa.numero_envio || id}!`,
-      folder_link: folderLink,
-      event_link: eventLink
-    });
-  } catch (error: any) {
-    console.error('Erro Integração:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- ROTA GOOGLE UPLOAD ---
-app.post('/api/google/upload-file', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
-  const { id_remessa } = req.body;
-
-  try {
-    const googleAuth = getGoogleAuth();
-    if (!googleAuth) throw new Error('Google Auth não configurado');
-
-    const authClient = await googleAuth.getClient();
     const { google } = getGoogleApis();
-    const drive = google.drive({ version: 'v3', auth: authClient });
+    const drive = google.drive({ version: 'v3', auth });
+    const calendar = google.calendar({ version: 'v3', auth });
 
-    // Busca o link da pasta na remessa
-    const { data: remessa } = await supabase.from('remessas_full').select('pdf_url').eq('id', id_remessa).single();
-    let folderId = null;
-
-    if (remessa?.pdf_url && remessa.pdf_url.includes('folders/')) {
-      folderId = remessa.pdf_url.split('folders/')[1].split('?')[0];
-    }
-
-    const fileMetadata = {
-      name: req.file.originalname,
-      parents: folderId ? [folderId] : []
-    };
-    const media = {
-      mimeType: req.file.mimetype,
-      body: Readable.from(req.file.buffer)
-    };
-
-    const file = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
+    const folder = await drive.files.create({
+      requestBody: { 
+        name: `REMESSA ${remessa.sequencial || 'S/N'} | ${remessa.data_envio}`, 
+        mimeType: 'application/vnd.google-apps.folder', 
+        parents: [process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || '139GB7UEhDLLcHkeMdfrCwKCTBenNONIB'] 
+      },
       fields: 'id, webViewLink'
     });
 
-    res.json({ success: true, link: file.data.webViewLink });
-  } catch (error: any) {
-    console.error('Erro Upload Google:', error);
-    res.status(500).json({ error: error.message });
+    const event = await calendar.events.insert({
+      calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
+      requestBody: {
+        summary: `FULL | ${remessa.sequencial || 'S/N'} | #${remessa.numero_envio}`,
+        start: { dateTime: `${remessa.data_envio}T20:00:00-03:00` },
+        end: { dateTime: `${remessa.data_envio}T21:00:00-03:00` }
+      }
+    });
+
+    await supabase.from('remessas_full').update({ 
+      status: 'integrado', 
+      folder_link: folder.data.webViewLink, 
+      calendar_link: event.data.htmlLink 
+    }).eq('id', id);
+
+    res.json({ message: 'OK' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// --- ROTA SINCRONIZAÇÃO ---
-
-app.post('/api/sync/produtos', async (req, res) => {
-  const token = getToken(req);
-  const store = (req.headers['x-nexxo-store'] as string) || 'MEIKE';
-  if (!token) return res.status(401).json({ error: 'Token não configurado' });
-
-  try {
-    let pagina = 1;
-    let total = 0;
-    let temMais = true;
-
-    while (temMais && pagina <= 10) {
-      const response = await fetch(`https://api.tiny.com.br/api2/produtos.pesquisa.php?token=${token}&formato=json&pagina=${pagina}`);
-      const data = await response.json();
-      const produtos = data.retorno?.produtos || [];
-
-      if (produtos.length === 0) { temMais = false; break; }
-
-      const supabaseData = produtos.map((item: any) => ({
-        id: parseInt(item.produto.id),
-        nome: item.produto.nome,
-        sku: item.produto.codigo || '',
-        unidade: store
-      }));
-
-      await supabase.from('produtos').upsert(supabaseData, { onConflict: 'id' });
-      total += produtos.length;
-      pagina++;
-      await new Promise(r => setTimeout(r, 300));
-    }
-    res.json({ status: 'success', synchronized: total });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Rota para qualquer outra coisa - Serve o index.html do React (SPA)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(_dirname, 'dist', 'index.html'));
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('====================================');
-  console.log(`SERVIDOR NEXXO INICIADO COM SUCESSO`);
-  console.log(`Porta: ${PORT}`);
-  console.log(`Ambiente: ${process.env.NODE_ENV || 'produção'}`);
-  console.log('====================================');
-});
+app.get('*', (req, res) => res.sendFile(path.join(_dirname, 'dist', 'index.html')));
+app.listen(PORT, () => console.log(`Servidor V6 Rodando na porta ${PORT}`));

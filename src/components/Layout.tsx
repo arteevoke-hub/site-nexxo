@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Store,
   Bot,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -85,16 +87,49 @@ interface LayoutProps {
 
 export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', setView = () => {}, store }: LayoutProps) => {
   const [expandedMenu, setExpandedMenu] = useState<string | null>('Produtos');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleMenu = (menu: string) => {
     setExpandedMenu(expandedMenu === menu ? null : menu);
   };
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen bg-[#F8FAFC] relative overflow-hidden">
+      {/* Mobile Toggle Button - Floating and high visibility */}
+      {!isSidebarOpen && (
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className="md:hidden fixed top-4 left-4 z-50 w-12 h-12 bg-slate-900 text-white rounded-xl shadow-2xl flex items-center justify-center border border-slate-700 active:scale-95 transition-all"
+        >
+          <Menu size={24} />
+        </button>
+      )}
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 text-white no-print">
-        <div className="p-6 flex flex-col items-center justify-center">
+      <aside className={`
+        fixed md:relative z-50 h-full w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 text-white no-print transition-all duration-300 ease-in-out shadow-2xl md:shadow-none
+        ${isSidebarOpen 
+          ? 'translate-x-0 opacity-100 visible' 
+          : '-translate-x-full opacity-0 invisible md:translate-x-0 md:opacity-100 md:visible'}
+      `}>
+        {/* Header with Close Button for Mobile */}
+        <div className="p-6 flex flex-col items-center justify-center relative">
+          {isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="md:hidden absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+          )}
           <span className="text-3xl font-black text-white tracking-[0.1em] uppercase italic" style={{ fontFamily: 'sans-serif' }}>
             {store === 'ONN' ? 'ONN STORE' : 'MEIKÊ'}
           </span>
@@ -110,7 +145,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             icon={Bot} 
             label="Agente IA" 
             active={view === 'agente'}
-            onClick={() => { setView('agente'); setExpandedMenu(null); }}
+            onClick={() => { setView('agente'); setExpandedMenu(null); setIsSidebarOpen(false); }}
           />
 
           <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider my-4 px-3">Painéis</div>
@@ -119,7 +154,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             icon={LayoutDashboard} 
             label="Painel de Controle" 
             active={view === 'painel'}
-            onClick={() => { setView('painel'); setExpandedMenu(null); }}
+            onClick={() => { setView('painel'); setExpandedMenu(null); setIsSidebarOpen(false); }}
           />
           
           <SidebarItem 
@@ -129,7 +164,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Marketing'}
             onClick={() => toggleMenu('Marketing')}
           >
-            <SubItem label="Resumo" active={view === 'marketing'} onClick={() => setView('marketing')} />
+            <SubItem label="Resumo" active={view === 'marketing'} onClick={() => { setView('marketing'); setIsSidebarOpen(false); }} />
             <SubItem label="Campanhas" />
             <SubItem label="ROAS por Região" />
           </SidebarItem>
@@ -141,7 +176,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Pedidos'}
             onClick={() => toggleMenu('Pedidos')}
           >
-            <SubItem label="Resumo" active={view === 'pedidos'} onClick={() => setView('pedidos')} />
+            <SubItem label="Resumo" active={view === 'pedidos'} onClick={() => { setView('pedidos'); setIsSidebarOpen(false); }} />
             <SubItem label="Aprovação" />
             <SubItem label="Regiões" />
           </SidebarItem>
@@ -165,9 +200,9 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Produtos'}
             onClick={() => toggleMenu('Produtos')}
           >
-            <SubItem label="Resumo" active={view === 'produtos' && activeTab === 'resumo'} onClick={() => { setView('produtos'); setActiveTab('resumo'); }} />
-            <SubItem label="Lista" active={view === 'produtos' && activeTab === 'lista'} onClick={() => { setView('produtos'); setActiveTab('lista'); }} />
-            <SubItem label="Estoque" active={view === 'produtos' && activeTab === 'estoque'} onClick={() => { setView('produtos'); setActiveTab('estoque'); }} />
+            <SubItem label="Resumo" active={view === 'produtos' && activeTab === 'resumo'} onClick={() => { setView('produtos'); setActiveTab('resumo'); setIsSidebarOpen(false); }} />
+            <SubItem label="Lista" active={view === 'produtos' && activeTab === 'lista'} onClick={() => { setView('produtos'); setActiveTab('lista'); setIsSidebarOpen(false); }} />
+            <SubItem label="Estoque" active={view === 'produtos' && activeTab === 'estoque'} onClick={() => { setView('produtos'); setActiveTab('estoque'); setIsSidebarOpen(false); }} />
           </SidebarItem>
 
           <SidebarItem 
@@ -178,10 +213,10 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Producao'}
             onClick={() => toggleMenu('Producao')}
           >
-            <SubItem label="Dicionário de SKUs" active={view === 'dicionario'} onClick={() => setView('dicionario')} />
-            <SubItem label="Gestão de Produção" active={view === 'producao-dash'} onClick={() => setView('producao-dash')} />
-            <SubItem label="Portal Freelancer" active={view === 'freelancer-dash'} onClick={() => setView('freelancer-dash')} />
-            <SubItem label="Montagem Kits (Totem)" active={view === 'producao-montagem'} onClick={() => setView('producao-montagem')} />
+            <SubItem label="Dicionário de SKUs" active={view === 'dicionario'} onClick={() => { setView('dicionario'); setIsSidebarOpen(false); }} />
+            <SubItem label="Gestão de Produção" active={view === 'producao-dash'} onClick={() => { setView('producao-dash'); setIsSidebarOpen(false); }} />
+            <SubItem label="Portal Freelancer" active={view === 'freelancer-dash'} onClick={() => { setView('freelancer-dash'); setIsSidebarOpen(false); }} />
+            <SubItem label="Montagem Kits (Totem)" active={view === 'producao-montagem'} onClick={() => { setView('producao-montagem'); setIsSidebarOpen(false); }} />
           </SidebarItem>
 
           <SidebarItem 
@@ -192,9 +227,9 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Full'}
             onClick={() => toggleMenu('Full')}
           >
-            <SubItem label="Resumo" active={view === 'full-resumo'} onClick={() => setView('full-resumo')} />
-            <SubItem label="Controle de Envio" active={view === 'remessa-list' || view === 'remessa-detail'} onClick={() => setView('remessa-list')} />
-            <SubItem label="Nova Remessa" active={view === 'full-new'} onClick={() => setView('full-new')} />
+            <SubItem label="Resumo" active={view === 'full-resumo'} onClick={() => { setView('full-resumo'); setIsSidebarOpen(false); }} />
+            <SubItem label="Controle de Envio" active={view === 'remessa-list' || view === 'remessa-detail'} onClick={() => { setView('remessa-list'); setIsSidebarOpen(false); }} />
+            <SubItem label="Nova Remessa" active={view === 'full-new'} onClick={() => { setView('full-new'); setIsSidebarOpen(false); }} />
           </SidebarItem>
 
           <SidebarItem 
@@ -204,7 +239,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
             expanded={expandedMenu === 'Financeiro'}
             onClick={() => toggleMenu('Financeiro')}
           >
-             <SubItem label="Resumo" active={view === 'financeiro'} onClick={() => setView('financeiro')} />
+             <SubItem label="Resumo" active={view === 'financeiro'} onClick={() => { setView('financeiro'); setIsSidebarOpen(false); }} />
              <SubItem label="Custos" />
           </SidebarItem>
           <SidebarItem icon={Target} label="Metas" />
@@ -236,7 +271,7 @@ export const Layout = ({ children, activeTab, setActiveTab, view = 'produtos', s
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col">
+      <main className="flex-1 overflow-auto flex flex-col w-full">
         {children}
       </main>
     </div>

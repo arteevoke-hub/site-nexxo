@@ -46408,7 +46408,7 @@ var import_meta = {};
 var _dirname = typeof __dirname !== "undefined" ? __dirname : process.cwd();
 var _require = typeof require !== "undefined" ? require : (0, import_module.createRequire)(import_meta.url);
 import_dotenv.default.config();
-console.log(">>> SERVIDOR NEXXO: INICIALIZANDO M\xD3DULO DE SEGURAN\xC7A V6 - DIAGN\xD3STICO ATIVADO <<<");
+console.log(">>> SERVIDOR NEXXO: INICIALIZANDO M\xD3DULO DE SEGURAN\xC7A V5 <<<");
 var app = (0, import_express.default)();
 var PORT = process.env.PORT || 3e3;
 app.use((0, import_cors.default)());
@@ -46417,80 +46417,111 @@ app.use(import_express.default.static(import_path.default.join(_dirname, "dist")
 var getGoogleApis = () => _require("googleapis");
 var supabaseUrl = process.env.VITE_SUPABASE_URL || "";
 var supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
-var supabase = createClient(supabaseUrl, supabaseKey);
-app.get("/api/debug-env", (req, res) => {
-  const key = process.env.GOOGLE_PRIVATE_KEY || "";
-  const email = process.env.GOOGLE_CLIENT_EMAIL || "";
-  res.json({
-    email_presente: email.length > 5,
-    email_preview: email.substring(0, 10) + "...",
-    chave_presente: key.length > 50,
-    chave_tamanho: key.length,
-    chave_inicio: key.substring(0, 30) + "...",
-    chave_fim: key.substring(key.length - 20),
-    ambiente: process.env.NODE_ENV || "n\xE3o definido",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  });
-});
+var supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (e) {
+    console.error("Erro Supabase:", e.message);
+  }
+}
 var getGoogleAuth = () => {
   const email = process.env.GOOGLE_CLIENT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY || "";
-  if (!email || key.length < 50) return null;
-  let clean = key.trim().replace(/^"(.*)"$/s, "$1").replace(/\\n/g, "\n");
-  const base64 = clean.replace(/-----BEGIN PRIVATE KEY-----/g, "").replace(/-----END PRIVATE KEY-----/g, "").replace(/[^A-Za-z0-9+/=]/g, "");
-  const chunks = base64.match(/.{1,64}/g);
-  if (!chunks) return null;
-  const pem = `-----BEGIN PRIVATE KEY-----
+  if (!email || key.length < 50) {
+    console.warn("[GoogleAuth] Credenciais incompletas ou ausentes.");
+    return null;
+  }
+  let processedKey = key.trim().replace(/^"(.*)"$/s, "$1").replace(/\\n/g, "\n");
+  const base64Content = processedKey.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").replace(/[^A-Za-z0-9+/=]/g, "");
+  const chunks = base64Content.match(/.{1,64}/g);
+  if (!chunks) {
+    console.error("[GoogleAuth] Falha ao processar base64 da chave.");
+    return null;
+  }
+  const finalPem = `-----BEGIN PRIVATE KEY-----
 ${chunks.join("\n")}
 -----END PRIVATE KEY-----
 `;
   try {
     const { google } = getGoogleApis();
     return new google.auth.GoogleAuth({
-      credentials: { type: "service_account", client_email: email, private_key: pem },
-      scopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/calendar"]
+      credentials: {
+        type: "service_account",
+        client_email: email,
+        private_key: finalPem
+      },
+      scopes: [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/calendar"
+      ]
     });
   } catch (err) {
+    console.error("[GoogleAuth] Erro ao criar inst\xE2ncia GoogleAuth:", err.message);
     return null;
   }
 };
+app.get("/api/tiny/estoque/:id", async (req, res) => {
+  const { id } = req.params;
+  const store = req.headers["x-nexxo-store"] || "MEIKE";
+  const token = store === "ONN" ? process.env.TINY_API_TOKEN_ONN : process.env.TINY_API_TOKEN_MEIKE || process.env.TINY_API_TOKEN;
+  if (!token) return res.status(401).json({ error: "Token Tiny ausente" });
+  try {
+    const response = await fetch(`https://api.tiny.com.br/api2/produto.obter.estoque.php?token=${token}&id=${id}&format=json`);
+    const data = await response.json();
+    if (data.retorno?.status === "OK") {
+      res.json({
+        saldoTotal: Number(data.retorno.produto.saldo),
+        depositos: data.retorno.produto.depositos.map((d) => ({ nome: d.deposito.nome, saldo: Number(d.deposito.saldo) }))
+      });
+    } else res.status(400).json({ error: "Erro no Tiny ERP" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post("/api/ml/integrate/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const { data: remessa } = await supabase.from("remessas_full").select("*").eq("id", id).single();
     const auth = getGoogleAuth();
-    if (!auth) throw new Error("Falha cr\xEDtica: Autentica\xE7\xE3o Google n\xE3o p\xF4de ser inicializada. Verifique as chaves no Painel Hostinger.");
-    const { google } = getGoogleApis();
-    const drive = google.drive({ version: "v3", auth });
-    const calendar = google.calendar({ version: "v3", auth });
-    const folder = await drive.files.create({
-      requestBody: {
-        name: `REMESSA ${remessa.sequencial || "S/N"} | ${remessa.data_envio}`,
-        mimeType: "application/vnd.google-apps.folder",
-        parents: [process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || "139GB7UEhDLLcHkeMdfrCwKCTBenNONIB"]
-      },
-      fields: "id, webViewLink"
-    });
-    const event = await calendar.events.insert({
-      calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
-      requestBody: {
-        summary: `FULL | ${remessa.sequencial || "S/N"} | #${remessa.numero_envio}`,
-        start: { dateTime: `${remessa.data_envio}T20:00:00-03:00` },
-        end: { dateTime: `${remessa.data_envio}T21:00:00-03:00` }
-      }
-    });
+    let folderLink = null;
+    let eventLink = null;
+    if (auth) {
+      const { google } = getGoogleApis();
+      const drive = google.drive({ version: "v3", auth });
+      const calendar = google.calendar({ version: "v3", auth });
+      const folder = await drive.files.create({
+        requestBody: {
+          name: `REMESSA ${remessa.sequencial || "S/N"} | ${remessa.data_envio}`,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || ""]
+        },
+        fields: "id, webViewLink"
+      });
+      folderLink = folder.data.webViewLink;
+      const event = await calendar.events.insert({
+        calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+        requestBody: {
+          summary: `FULL | ${remessa.sequencial || "S/N"} | #${remessa.numero_envio}`,
+          start: { dateTime: `${remessa.data_envio}T20:00:00-03:00` },
+          end: { dateTime: `${remessa.data_envio}T21:00:00-03:00` }
+        }
+      });
+      eventLink = event.data.htmlLink;
+    }
     await supabase.from("remessas_full").update({
       status: "integrado",
-      folder_link: folder.data.webViewLink,
-      calendar_link: event.data.htmlLink
+      folder_link: folderLink,
+      calendar_link: eventLink
     }).eq("id", id);
-    res.json({ message: "OK" });
+    res.json({ message: "OK", folder_link: folderLink, calendar_link: eventLink });
   } catch (err) {
+    console.error("[Integrate Error]:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 app.get("*", (req, res) => res.sendFile(import_path.default.join(_dirname, "dist", "index.html")));
-app.listen(PORT, () => console.log(`Servidor V6 Rodando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor Nexxo Ativo na porta ${PORT}`));
 /*! Bundled license information:
 
 depd/index.js:
