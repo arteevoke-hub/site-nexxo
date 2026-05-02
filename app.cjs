@@ -56817,10 +56817,6 @@ app.post("/api/ml/integrate/:id", async (req, res) => {
     else if (plataformaLower.includes("amazon")) prefixoAgenda = "FULL AMZ";
     const nomeFinal = `${plataformaLower.includes("mercado") ? "ML" : plataformaLower.includes("shopee") ? "SHP" : "AMZ"} ${numFormatadoDrive} | ${dataFormatada}`;
     const tituloAgenda = `${prefixoAgenda} | ${numFormatadoAgenda} | #${remessa.numero_envio || "S/N"}`;
-    console.log(`[Integrate] Gerando PDF com Puppeteer...`);
-    if (!puppeteer) {
-      throw new Error("Servi\xE7o de PDF indispon\xEDvel neste servidor (Requer VPS).");
-    }
     const linhasTabela = (itens || []).map((item) => {
       const img = item.produtos?.url_imagem || "";
       return `
@@ -56887,11 +56883,23 @@ app.post("/api/ml/integrate/:id", async (req, res) => {
       </body>
       </html>
     `;
-    const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-    await browser.close();
+    console.log(`[Integrate] Tentando gerar PDF...`);
+    let pdfBuffer = null;
+    if (puppeteer) {
+      try {
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "networkidle0" });
+        pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+        await browser.close();
+        console.log(`[Integrate] PDF gerado com sucesso.`);
+      } catch (pdfErr) {
+        console.warn("AVISO: Falha ao gerar PDF (Ambiente restrito):", pdfErr.message);
+      }
+    }
     const googleAuth = getGoogleAuth();
     let folderLink = null;
     let eventLink = null;
